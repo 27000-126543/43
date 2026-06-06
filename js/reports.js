@@ -446,214 +446,209 @@ const ReportsModule = {
         StateManager.showToast('正在绘制物理曲线并生成 PDF...', 'info');
 
         var self = this;
-        setTimeout(function() {
-            try {
-                var sampleTask = tasks[0];
-                var shower = sampleTask.showerData || PhysicsModels.computeLongitudinalDevelopment(
-                    sampleTask.energy, sampleTask.primaryParticle, sampleTask.zenithAngle,
-                    sampleTask.observationAltitude, sampleTask.atmosphereModel
-                );
+        try {
+            var sampleTask = tasks[0];
+            var shower = sampleTask.showerData;
 
-                if (!shower || !shower.longitudinal) {
-                    shower = SimData.runFullSimulation({
-                        energy: sampleTask.energy,
-                        primaryParticle: sampleTask.primaryParticle,
-                        zenithAngle: sampleTask.zenithAngle,
-                        observationAltitude: sampleTask.observationAltitude,
-                        atmosphereModel: sampleTask.atmosphereModel
-                    }).showerData;
-                }
-
-                var longCanvas = document.getElementById('pdfLongitudinalCanvas');
-                var latCanvas = document.getElementById('pdfLateralCanvas');
-                var cherenkovCanvas = document.getElementById('pdfCherenkovCanvas');
-
-                PDFCharts.drawLineChart(longCanvas,
-                    'Figure 1: Longitudinal Development (Gaisser-Hillas)',
-                    shower.longitudinal.depth,
-                    [
-                        { label: 'Charged Particles', data: shower.longitudinal.particles, color: '#1976d2', lineWidth: 2.5, fillArea: true },
-                        { label: 'Gamma', data: shower.longitudinal.gamma, color: '#9c27b0', lineWidth: 2 },
-                        { label: 'Muons', data: shower.longitudinal.muons, color: '#ff9800', lineWidth: 2 },
-                        { label: 'Electrons', data: shower.longitudinal.electrons, color: '#4caf50', lineWidth: 2 }
-                    ],
-                    { logY: true, xLabel: 'Atmospheric Depth X (g/cm²)', yLabel: 'dN/dX (particles / g·cm⁻²)' }
-                );
-
-                PDFCharts.drawLineChart(latCanvas,
-                    'Figure 2: Lateral Distribution (NKG Formula)',
-                    shower.lateral.radius,
-                    [{ label: 'Particle Density ρ(r)', data: shower.lateral.density, color: '#e65100', lineWidth: 2.5, fillArea: true }],
-                    { logY: true, xLabel: 'Distance from Core r (m)', yLabel: 'ρ(r) (particles / m²)' }
-                );
-
-                PDFCharts.drawBarAndLineChart(cherenkovCanvas,
-                    'Figure 3: Cherenkov Light Distribution',
-                    shower.cherenkov.time.map(function(t) { return t + ' ns'; }),
-                    shower.cherenkov.photons,
-                    shower.cherenkov.intensity,
-                    { barLabel: 'Photons (Time Distribution)', lineLabel: 'Intensity (Spatial Distribution)', xLabel: 'Time since First Photon (ns) / Radius (m)' }
-                );
-
-                var longImg = longCanvas.toDataURL('image/png', 1.0);
-                var latImg = latCanvas.toDataURL('image/png', 1.0);
-                var cherenkovImg = cherenkovCanvas.toDataURL('image/png', 1.0);
-
-                var { jsPDF } = jspdf;
-                var doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
-                var pageW = doc.internal.pageSize.getWidth();
-                var pageH = doc.internal.pageSize.getHeight();
-
-                doc.setFillColor(26, 35, 126);
-                doc.rect(0, 0, pageW, 32, 'F');
-                doc.setTextColor(255, 255, 255);
-                doc.setFontSize(18);
-                doc.setFont('helvetica', 'bold');
-                doc.text('Cosmic Ray Air Shower Simulation Report', pageW / 2, 13, { align: 'center' });
-                doc.setFontSize(9);
-                doc.setFont('helvetica', 'normal');
-                doc.text('Comprehensive Physics Analysis with Gaisser-Hillas / NKG / Cherenkov Models', pageW / 2, 20, { align: 'center' });
-                doc.text('Generated: ' + new Date().toLocaleString(), pageW / 2, 27, { align: 'center' });
-
-                doc.setTextColor(0, 0, 0);
-                doc.setFontSize(13);
-                doc.setFont('helvetica', 'bold');
-                doc.text('1. Simulation Parameters', 14, 42);
-
-                doc.setFontSize(9.5);
-                doc.setFont('helvetica', 'normal');
-                var pLabel = StateManager.PARTICLE_LABELS[sampleTask.primaryParticle] || sampleTask.primaryParticle;
-                doc.text('Task ID:           ' + sampleTask.id, 14, 50);
-                doc.text('Primary Particle:  ' + pLabel + ' (' + sampleTask.primaryParticle + ')', 14, 56);
-                doc.text('Initial Energy:    ' + StateManager.formatEnergy(sampleTask.energy) + '  (' + sampleTask.energy.toExponential(4) + ' eV)', 14, 62);
-                doc.text('Zenith Angle:      ' + sampleTask.zenithAngle.toFixed(2) + ' deg', 14, 68);
-                doc.text('Azimuth Angle:     ' + sampleTask.azimuthAngle.toFixed(2) + ' deg', 14, 74);
-                doc.text('Atmosphere Model:  ' + sampleTask.atmosphereModel, 105, 50);
-                doc.text('Altitude:          ' + sampleTask.observationAltitude.toFixed(0) + ' m a.s.l.', 105, 56);
-                doc.text('X_max (predicted): ' + sampleTask.xmax.toFixed(1) + ' g/cm²', 105, 62);
-                doc.text('N_charged (ground): ' + sampleTask.totalParticles.toExponential(3), 105, 68);
-                doc.text('Muon fraction:     ' + sampleTask.muonFraction.toFixed(1) + ' %', 105, 74);
-                doc.text('EM fraction:       ' + sampleTask.emFraction.toFixed(1) + ' %', 105, 80);
-
-                doc.setDrawColor(26, 35, 126);
-                doc.setLineWidth(0.3);
-                doc.line(14, 88, pageW - 14, 88);
-
-                doc.setFontSize(13);
-                doc.setFont('helvetica', 'bold');
-                doc.text('2. Physics Models Summary', 14, 96);
-                doc.setFontSize(9);
-                doc.setFont('helvetica', 'normal');
-                doc.text('- Longitudinal development:  Gaisser-Hillas 3-param function  dN/dX = Nmax * ((X-X0)/(Xmax-X0))^((Xmax-X0)/lambda) * exp((Xmax-X0)/lambda * (1-(X-X0)/(Xmax-X0)))', 14, 103);
-                doc.text('- Lateral distribution:     NKG (Nishimura-Kamata-Greisen) formula with Moliere radius R_M = ' + PhysicsModels.MOLIERE_RADIUS + ' m', 14, 109);
-                doc.text('- Cherenkov radiation:      Threshold condition cos(theta_c) = 1/(beta*n) ; yield = 370 sin^2(theta_c) photons/m', 14, 115);
-
-                doc.addImage(longImg, 'PNG', 8, 122, pageW - 16, 80);
-
-                doc.addPage();
-
-                doc.setFontSize(13);
-                doc.setFont('helvetica', 'bold');
-                doc.text('3. Lateral Distribution (NKG)', 14, 18);
-                doc.setFontSize(9);
-                doc.setFont('helvetica', 'normal');
-                doc.text('Particle density as a function of distance from shower core. Age parameter s = ' + 
-                    PhysicsModels.computeShowerAge(
-                        sampleTask.energy, sampleTask.primaryParticle, 
-                        sampleTask.observationAltitude, sampleTask.atmosphereModel
-                    ).toFixed(3), 14, 25);
-                doc.addImage(latImg, 'PNG', 8, 32, pageW - 16, 80);
-
-                doc.setFontSize(13);
-                doc.setFont('helvetica', 'bold');
-                doc.text('4. Cherenkov Light Distribution', 14, 122);
-                doc.setFontSize(9);
-                doc.setFont('helvetica', 'normal');
-                var chAngle = PhysicsModels.cherenkovAngle(sampleTask.energy / 1e9, 0.000511, sampleTask.observationAltitude, sampleTask.atmosphereModel);
-                doc.text('Cherenkov angle at observation level: ' + chAngle.angle_deg.toFixed(3) + ' deg, n = ' + chAngle.n_refractive.toFixed(6), 14, 129);
-                doc.text('Photon yield per meter: ' + chAngle.yield_per_m.toFixed(1) + ' photons/m (for electrons above threshold)', 14, 135);
-                doc.addImage(cherenkovImg, 'PNG', 8, 142, pageW - 16, 80);
-
-                doc.addPage();
-
-                doc.setFontSize(13);
-                doc.setFont('helvetica', 'bold');
-                doc.text('5. Reconstruction & Detector Response', 14, 18);
-                doc.setFontSize(9.5);
-                doc.setFont('helvetica', 'normal');
-                doc.text('Reconstructed Energy:   ' + StateManager.formatEnergy(sampleTask.reconstructedEnergy) + 
-                    '   (input: ' + StateManager.formatEnergy(sampleTask.energy) + ')', 14, 28);
-                doc.text('Energy Bias:            ' + 
-                    ((sampleTask.reconstructedEnergy - sampleTask.energy) / sampleTask.energy * 100).toFixed(2) + ' %', 14, 34);
-                doc.text('Reconstruction Resolution: ' + sampleTask.reconstructionResolution.toFixed(2) + ' %', 14, 40);
-                doc.text('Array Trigger Efficiency:  ' + sampleTask.triggerEfficiency.toFixed(2) + ' %', 14, 46);
-
-                var tableData = tasks.slice(0, 12).map(function(t) {
-                    return [
-                        t.id,
-                        StateManager.PARTICLE_LABELS[t.primaryParticle] || t.primaryParticle,
-                        StateManager.formatEnergy(t.energy),
-                        t.zenithAngle.toFixed(1),
-                        t.xmax ? t.xmax.toFixed(0) : '-',
-                        t.triggerEfficiency ? t.triggerEfficiency.toFixed(1) + '%' : '-'
-                    ];
-                });
-
-                if (typeof doc.autoTable === 'function') {
-                    doc.autoTable({
-                        startY: 56,
-                        head: [['Task ID', 'Primary', 'Energy', 'Zenith (deg)', 'X_max (g/cm²)', 'Efficiency']],
-                        body: tableData,
-                        theme: 'grid',
-                        styles: { fontSize: 8 },
-                        headStyles: { fillColor: [26, 35, 126], textColor: 255, fontSize: 9, fontStyle: 'bold' },
-                        alternateRowStyles: { fillColor: [240, 243, 255] },
-                        margin: { left: 14, right: 14 }
-                    });
-                }
-
-                doc.setFontSize(13);
-                doc.setFont('helvetica', 'bold');
-                var finalY = (doc.lastAutoTable && doc.lastAutoTable.finalY) || 130;
-                doc.text('6. Daily Performance Summary', 14, finalY + 10);
-
-                var stats = SimData.getDailyStats();
-                doc.setFontSize(9.5);
-                doc.setFont('helvetica', 'normal');
-                doc.text('Total Tasks Analyzed:    ' + stats.totalTasks, 14, finalY + 18);
-                doc.text('Completion Rate:         ' + stats.completionRate + ' %', 14, finalY + 24);
-                doc.text('Avg. Resolution:         ' + stats.resolution + ' %', 14, finalY + 30);
-                doc.text('Avg. Trigger Efficiency: ' + stats.triggerEfficiency + ' %', 14, finalY + 36);
-                doc.text('Pending Approval:        ' + stats.pendingApproval + ' tasks', 14, finalY + 42);
-                doc.text('Active Alerts:           ' + stats.alertCount, 14, finalY + 48);
-
-                doc.setFillColor(26, 35, 126);
-                doc.rect(0, pageH - 12, pageW, 12, 'F');
-                doc.setTextColor(255, 255, 255);
-                doc.setFontSize(8);
-                doc.setFont('helvetica', 'italic');
-                doc.text('Cosmic Ray Air Shower Simulation Platform  |  Physics Models: Gaisser-Hillas + NKG + Cherenkov  |  Page ' + 
-                    doc.internal.getNumberOfPages(), pageW / 2, pageH - 4, { align: 'center' });
-
-                var filename = 'Cosmic_Ray_Shower_Physics_Report_' + Date.now() + '.pdf';
-                doc.save(filename);
-
-                SimData.addReport({
-                    id: 'REPORT-' + Date.now(),
-                    title: '物理综合报告 ' + new Date().toLocaleDateString('zh-CN'),
-                    taskId: sampleTask.id,
-                    createdAt: new Date().toISOString(),
-                    type: 'comprehensive',
-                    fileSize: (Math.random() * 3 + 2).toFixed(2) + ' MB'
-                });
-
-                self.renderReportsList();
-                StateManager.showToast('物理综合 PDF 报告生成成功！（含真实物理曲线图）', 'success');
-            } catch (e) {
-                console.error('PDF生成错误:', e);
-                StateManager.showToast('PDF 生成失败: ' + e.message, 'error');
+            if (!shower || !shower.longitudinal) {
+                shower = SimData.runFullSimulation({
+                    energy: sampleTask.energy,
+                    primaryParticle: sampleTask.primaryParticle,
+                    zenithAngle: sampleTask.zenithAngle,
+                    observationAltitude: sampleTask.observationAltitude,
+                    atmosphereModel: sampleTask.atmosphereModel
+                }).showerData;
             }
-        }, 300);
+
+            var longCanvas = document.getElementById('pdfLongitudinalCanvas');
+            var latCanvas = document.getElementById('pdfLateralCanvas');
+            var cherenkovCanvas = document.getElementById('pdfCherenkovCanvas');
+
+            PDFCharts.drawLineChart(longCanvas,
+                'Figure 1: Longitudinal Development (Gaisser-Hillas)',
+                shower.longitudinal.depth,
+                [
+                    { label: 'Charged Particles', data: shower.longitudinal.particles, color: '#1976d2', lineWidth: 2.5, fillArea: true },
+                    { label: 'Gamma', data: shower.longitudinal.gamma, color: '#9c27b0', lineWidth: 2 },
+                    { label: 'Muons', data: shower.longitudinal.muons, color: '#ff9800', lineWidth: 2 },
+                    { label: 'Electrons', data: shower.longitudinal.electrons, color: '#4caf50', lineWidth: 2 }
+                ],
+                { logY: true, xLabel: 'Atmospheric Depth X (g/cm²)', yLabel: 'dN/dX (particles / g·cm⁻²)' }
+            );
+
+            PDFCharts.drawLineChart(latCanvas,
+                'Figure 2: Lateral Distribution (NKG Formula)',
+                shower.lateral.radius,
+                [{ label: 'Particle Density ρ(r)', data: shower.lateral.density, color: '#e65100', lineWidth: 2.5, fillArea: true }],
+                { logY: true, xLabel: 'Distance from Core r (m)', yLabel: 'ρ(r) (particles / m²)' }
+            );
+
+            PDFCharts.drawBarAndLineChart(cherenkovCanvas,
+                'Figure 3: Cherenkov Light Distribution',
+                shower.cherenkov.time.map(function(t) { return t + ' ns'; }),
+                shower.cherenkov.photons,
+                shower.cherenkov.intensity,
+                { barLabel: 'Photons (Time Distribution)', lineLabel: 'Intensity (Spatial Distribution)', xLabel: 'Time since First Photon (ns) / Radius (m)' }
+            );
+
+            var longImg = longCanvas.toDataURL('image/png', 1.0);
+            var latImg = latCanvas.toDataURL('image/png', 1.0);
+            var cherenkovImg = cherenkovCanvas.toDataURL('image/png', 1.0);
+
+            var { jsPDF } = jspdf;
+            var doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
+            var pageW = doc.internal.pageSize.getWidth();
+            var pageH = doc.internal.pageSize.getHeight();
+
+            doc.setFillColor(26, 35, 126);
+            doc.rect(0, 0, pageW, 32, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(18);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Cosmic Ray Air Shower Simulation Report', pageW / 2, 13, { align: 'center' });
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'normal');
+            doc.text('Comprehensive Physics Analysis with Gaisser-Hillas / NKG / Cherenkov Models', pageW / 2, 20, { align: 'center' });
+            doc.text('Generated: ' + new Date().toLocaleString(), pageW / 2, 27, { align: 'center' });
+
+            doc.setTextColor(0, 0, 0);
+            doc.setFontSize(13);
+            doc.setFont('helvetica', 'bold');
+            doc.text('1. Simulation Parameters', 14, 42);
+
+            doc.setFontSize(9.5);
+            doc.setFont('helvetica', 'normal');
+            var pLabel = StateManager.PARTICLE_LABELS[sampleTask.primaryParticle] || sampleTask.primaryParticle;
+            doc.text('Task ID:           ' + sampleTask.id, 14, 50);
+            doc.text('Primary Particle:  ' + pLabel + ' (' + sampleTask.primaryParticle + ')', 14, 56);
+            doc.text('Initial Energy:    ' + StateManager.formatEnergy(sampleTask.energy) + '  (' + sampleTask.energy.toExponential(4) + ' eV)', 14, 62);
+            doc.text('Zenith Angle:      ' + sampleTask.zenithAngle.toFixed(2) + ' deg', 14, 68);
+            doc.text('Azimuth Angle:     ' + sampleTask.azimuthAngle.toFixed(2) + ' deg', 14, 74);
+            doc.text('Atmosphere Model:  ' + sampleTask.atmosphereModel, 105, 50);
+            doc.text('Altitude:          ' + sampleTask.observationAltitude.toFixed(0) + ' m a.s.l.', 105, 56);
+            doc.text('X_max (predicted): ' + sampleTask.xmax.toFixed(1) + ' g/cm²', 105, 62);
+            doc.text('N_charged (ground): ' + sampleTask.totalParticles.toExponential(3), 105, 68);
+            doc.text('Muon fraction:     ' + sampleTask.muonFraction.toFixed(1) + ' %', 105, 74);
+            doc.text('EM fraction:       ' + sampleTask.emFraction.toFixed(1) + ' %', 105, 80);
+
+            doc.setDrawColor(26, 35, 126);
+            doc.setLineWidth(0.3);
+            doc.line(14, 88, pageW - 14, 88);
+
+            doc.setFontSize(13);
+            doc.setFont('helvetica', 'bold');
+            doc.text('2. Physics Models Summary', 14, 96);
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'normal');
+            doc.text('- Longitudinal development:  Gaisser-Hillas 3-param function  dN/dX = Nmax * ((X-X0)/(Xmax-X0))^((Xmax-X0)/lambda) * exp((Xmax-X0)/lambda * (1-(X-X0)/(Xmax-X0)))', 14, 103);
+            doc.text('- Lateral distribution:     NKG (Nishimura-Kamata-Greisen) formula with Moliere radius R_M = ' + PhysicsModels.MOLIERE_RADIUS + ' m', 14, 109);
+            doc.text('- Cherenkov radiation:      Threshold condition cos(theta_c) = 1/(beta*n) ; yield = 370 sin^2(theta_c) photons/m', 14, 115);
+
+            doc.addImage(longImg, 'PNG', 8, 122, pageW - 16, 80);
+
+            doc.addPage();
+
+            doc.setFontSize(13);
+            doc.setFont('helvetica', 'bold');
+            doc.text('3. Lateral Distribution (NKG)', 14, 18);
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'normal');
+            doc.text('Particle density as a function of distance from shower core. Age parameter s = ' +
+                PhysicsModels.computeShowerAge(
+                    sampleTask.energy, sampleTask.primaryParticle,
+                    sampleTask.zenithAngle, sampleTask.observationAltitude, sampleTask.atmosphereModel
+                ).toFixed(3), 14, 25);
+            doc.addImage(latImg, 'PNG', 8, 32, pageW - 16, 80);
+
+            doc.setFontSize(13);
+            doc.setFont('helvetica', 'bold');
+            doc.text('4. Cherenkov Light Distribution', 14, 122);
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'normal');
+            var chAngle = PhysicsModels.cherenkovAngle(sampleTask.energy / 1e9, 0.000511, sampleTask.observationAltitude, sampleTask.atmosphereModel);
+            doc.text('Cherenkov angle at observation level: ' + chAngle.angle_deg.toFixed(3) + ' deg, n = ' + chAngle.n_refractive.toFixed(6), 14, 129);
+            doc.text('Photon yield per meter: ' + chAngle.yield_per_m.toFixed(1) + ' photons/m (for electrons above threshold)', 14, 135);
+            doc.addImage(cherenkovImg, 'PNG', 8, 142, pageW - 16, 80);
+
+            doc.addPage();
+
+            doc.setFontSize(13);
+            doc.setFont('helvetica', 'bold');
+            doc.text('5. Reconstruction & Detector Response', 14, 18);
+            doc.setFontSize(9.5);
+            doc.setFont('helvetica', 'normal');
+            doc.text('Reconstructed Energy:   ' + StateManager.formatEnergy(sampleTask.reconstructedEnergy) +
+                '   (input: ' + StateManager.formatEnergy(sampleTask.energy) + ')', 14, 28);
+            doc.text('Energy Bias:            ' +
+                ((sampleTask.reconstructedEnergy - sampleTask.energy) / sampleTask.energy * 100).toFixed(2) + ' %', 14, 34);
+            doc.text('Reconstruction Resolution: ' + sampleTask.reconstructionResolution.toFixed(2) + ' %', 14, 40);
+            doc.text('Array Trigger Efficiency:  ' + sampleTask.triggerEfficiency.toFixed(2) + ' %', 14, 46);
+
+            var tableData = tasks.slice(0, 12).map(function(t) {
+                return [
+                    t.id,
+                    StateManager.PARTICLE_LABELS[t.primaryParticle] || t.primaryParticle,
+                    StateManager.formatEnergy(t.energy),
+                    t.zenithAngle.toFixed(1),
+                    t.xmax ? t.xmax.toFixed(0) : '-',
+                    t.triggerEfficiency ? t.triggerEfficiency.toFixed(1) + '%' : '-'
+                ];
+            });
+
+            if (typeof doc.autoTable === 'function') {
+                doc.autoTable({
+                    startY: 56,
+                    head: [['Task ID', 'Primary', 'Energy', 'Zenith (deg)', 'X_max (g/cm²)', 'Efficiency']],
+                    body: tableData,
+                    theme: 'grid',
+                    styles: { fontSize: 8 },
+                    headStyles: { fillColor: [26, 35, 126], textColor: 255, fontSize: 9, fontStyle: 'bold' },
+                    alternateRowStyles: { fillColor: [240, 243, 255] },
+                    margin: { left: 14, right: 14 }
+                });
+            }
+
+            doc.setFontSize(13);
+            doc.setFont('helvetica', 'bold');
+            var finalY = (doc.lastAutoTable && doc.lastAutoTable.finalY) || 130;
+            doc.text('6. Daily Performance Summary', 14, finalY + 10);
+
+            var stats = SimData.getDailyStats();
+            doc.setFontSize(9.5);
+            doc.setFont('helvetica', 'normal');
+            doc.text('Total Tasks Analyzed:    ' + stats.totalTasks, 14, finalY + 18);
+            doc.text('Completion Rate:         ' + stats.completionRate + ' %', 14, finalY + 24);
+            doc.text('Avg. Resolution:         ' + stats.resolution + ' %', 14, finalY + 30);
+            doc.text('Avg. Trigger Efficiency: ' + stats.triggerEfficiency + ' %', 14, finalY + 36);
+            doc.text('Pending Approval:        ' + stats.pendingApproval + ' tasks', 14, finalY + 42);
+            doc.text('Active Alerts:           ' + stats.alertCount, 14, finalY + 48);
+
+            doc.setFillColor(26, 35, 126);
+            doc.rect(0, pageH - 12, pageW, 12, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'italic');
+            doc.text('Cosmic Ray Air Shower Simulation Platform  |  Physics Models: Gaisser-Hillas + NKG + Cherenkov  |  Page ' +
+                doc.internal.getNumberOfPages(), pageW / 2, pageH - 4, { align: 'center' });
+
+            var filename = 'Cosmic_Ray_Shower_Physics_Report_' + Date.now() + '.pdf';
+            doc.save(filename);
+
+            SimData.addReport({
+                id: 'REPORT-' + Date.now(),
+                title: '物理综合报告 ' + new Date().toLocaleDateString('zh-CN'),
+                taskId: sampleTask.id,
+                createdAt: new Date().toISOString(),
+                type: 'comprehensive',
+                fileSize: (Math.random() * 3 + 2).toFixed(2) + ' MB'
+            });
+
+            self.renderReportsList();
+            StateManager.showToast('物理综合 PDF 报告生成成功！（含真实物理曲线图）', 'success');
+        } catch (e) {
+            console.error('PDF生成错误:', e);
+            StateManager.showToast('PDF 生成失败: ' + e.message, 'error');
+        }
     },
 
     downloadReport(reportId) {

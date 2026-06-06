@@ -184,7 +184,7 @@ const PhysicsModels = {
 
     nkgLateralDistribution(r_m, E0, primaryType, zenithAngle, observationAltitude, modelKey) {
         const r_M = this.MOLIERE_RADIUS;
-        const ageParam = this.computeShowerAge(E0, primaryType, observationAltitude, modelKey);
+        const ageParam = this.computeShowerAge(E0, primaryType, zenithAngle, observationAltitude, modelKey);
         
         const s = Math.max(0.5, Math.min(2.0, ageParam));
         const r = r_m / r_M;
@@ -347,7 +347,23 @@ const SimData = {
     
     init() {
         this.loadFromStorage();
-        if (this.simulationTasks.length === 0) {
+        var needsReset = false;
+        if (this.simulationTasks.length > 0) {
+            var sample = this.simulationTasks[0];
+            if (!sample.showerData || !sample.showerData.longitudinal ||
+                typeof sample.xmax === 'undefined' || sample.xmax === null) {
+                needsReset = true;
+            }
+        }
+        if (this.simulationTasks.length === 0 || needsReset) {
+            this.simulationTasks = [];
+            this.notifications = [];
+            this.reports = [];
+            try {
+                localStorage.removeItem('cosmicRayTasks');
+                localStorage.removeItem('cosmicRayNotifications');
+                localStorage.removeItem('cosmicRayReports');
+            } catch (e) {}
             this.generateMockData();
         }
     },
@@ -360,8 +376,21 @@ const SimData = {
             if (tasks) this.simulationTasks = JSON.parse(tasks);
             if (notifs) this.notifications = JSON.parse(notifs);
             if (reports) this.reports = JSON.parse(reports);
+
+            if (this.simulationTasks.length > 0) {
+                const sample = this.simulationTasks[0];
+                if (!sample.showerData || !sample.showerData.longitudinal || typeof PhysicsModels === 'undefined') {
+                    console.warn('检测到旧格式数据或 PhysicsModels 未就绪，正在重新生成模拟数据...');
+                    this.simulationTasks = [];
+                    this.notifications = [];
+                    this.reports = [];
+                }
+            }
         } catch (e) {
             console.error('加载数据失败:', e);
+            this.simulationTasks = [];
+            this.notifications = [];
+            this.reports = [];
         }
     },
 
@@ -575,6 +604,28 @@ const SimData = {
             }
         }
         return false;
+    },
+
+    generateShowerData(task) {
+        if (!task) return null;
+        const energy = task.energy || 1e15;
+        const primaryParticle = task.primaryParticle || 'proton';
+        const zenithAngle = task.zenithAngle || 0;
+        const observationAltitude = task.observationAltitude || 1400;
+        const atmosphereModel = task.atmosphereModel || 'US76';
+
+        const longitudinal = PhysicsModels.computeLongitudinalDevelopment(
+            energy, primaryParticle, zenithAngle, observationAltitude, atmosphereModel
+        );
+        const lateral = PhysicsModels.computeLateralDistribution(
+            energy, primaryParticle, zenithAngle, observationAltitude, atmosphereModel, longitudinal.totalParticles
+        );
+        const cherenkov = PhysicsModels.computeCherenkovDistribution(
+            energy, primaryParticle, zenithAngle, observationAltitude, atmosphereModel,
+            longitudinal.Xmax, longitudinal.totalParticles
+        );
+
+        return { longitudinal, lateral, cherenkov };
     },
 
     getRecommendations() {
