@@ -201,7 +201,12 @@ const MonitorModule = {
         var task = this.getCurrentTask();
         if (!task || !task.totalParticles) return;
 
-        var data = SimData.generateShowerData(task);
+        var data;
+        if (task.showerData && task.showerData.longitudinal) {
+            data = task.showerData;
+        } else {
+            data = SimData.generateShowerData(task);
+        }
 
         if (this.charts.longitudinal) {
             this.charts.longitudinal.data.labels = data.longitudinal.depth.map(function(d) { return d.toFixed(0); });

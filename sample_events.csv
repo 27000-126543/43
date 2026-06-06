@@ -1,0 +1,6 @@
+event_id,energy,primary_particle,zenith_angle,azimuth_angle,atmosphere,altitude,xmax,n_particles
+EVT-001,1e15,proton,30.0,45.0,US76,1400,720.5,2500000
+EVT-002,5e15,gamma,20.0,90.0,Linsley,1800,580.3,8900000
+EVT-003,1e16,iron,45.0,180.0,US76,1400,610.8,12500000
+EVT-004,5e14,helium,15.0,0.0,MSIS,2000,695.2,1800000
+EVT-005,1e17,proton,60.0,270.0,US76,1400,890.1,45000000

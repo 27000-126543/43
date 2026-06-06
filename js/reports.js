@@ -1,3 +1,275 @@
+const PDFCharts = {
+    drawLineChart(canvas, title, xData, ySeries, options) {
+        options = options || {};
+        const ctx = canvas.getContext('2d');
+        const W = canvas.width;
+        const H = canvas.height;
+        const padding = { top: 50, right: 30, bottom: 60, left: 80 };
+        const chartW = W - padding.left - padding.right;
+        const chartH = H - padding.top - padding.bottom;
+
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, W, H);
+
+        ctx.strokeStyle = '#1a237e';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(padding.left, padding.top, chartW, chartH);
+
+        ctx.fillStyle = '#1a237e';
+        ctx.font = 'bold 18px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(title, W / 2, 30);
+
+        let allY = [];
+        ySeries.forEach(function(ys) { allY = allY.concat(ys.data); });
+        allY = allY.filter(function(v) { return isFinite(v) && v > 0; });
+
+        let yMin, yMax;
+        if (options.logY) {
+            yMin = Math.max(1, Math.min.apply(null, allY));
+            yMax = Math.max.apply(null, allY);
+            yMin = Math.pow(10, Math.floor(Math.log10(yMin)));
+            yMax = Math.pow(10, Math.ceil(Math.log10(yMax)));
+        } else {
+            yMin = 0;
+            yMax = Math.max.apply(null, allY) * 1.1;
+        }
+
+        const xMin = Math.min.apply(null, xData);
+        const xMax = Math.max.apply(null, xData);
+
+        ctx.strokeStyle = '#dddddd';
+        ctx.lineWidth = 0.5;
+        const yTicks = options.logY ? 5 : 5;
+        for (let i = 0; i <= yTicks; i++) {
+            let yVal;
+            if (options.logY) {
+                yVal = yMin * Math.pow(yMax / yMin, i / yTicks);
+            } else {
+                yVal = yMin + (yMax - yMin) * i / yTicks;
+            }
+            const y = padding.top + chartH - (options.logY ? 
+                (Math.log10(yVal) - Math.log10(yMin)) / (Math.log10(yMax) - Math.log10(yMin)) : 
+                (yVal - yMin) / (yMax - yMin)) * chartH;
+            ctx.beginPath();
+            ctx.moveTo(padding.left, y);
+            ctx.lineTo(padding.left + chartW, y);
+            ctx.stroke();
+
+            ctx.fillStyle = '#333333';
+            ctx.font = '11px sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText(options.logY ? yVal.toExponential(0) : yVal.toFixed(0), padding.left - 8, y + 4);
+        }
+
+        const xTicks = Math.min(8, xData.length);
+        for (let i = 0; i <= xTicks; i++) {
+            const frac = i / xTicks;
+            const xVal = xMin + (xMax - xMin) * frac;
+            const x = padding.left + frac * chartW;
+            
+            ctx.strokeStyle = '#dddddd';
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            ctx.moveTo(x, padding.top);
+            ctx.lineTo(x, padding.top + chartH);
+            ctx.stroke();
+
+            ctx.fillStyle = '#333333';
+            ctx.font = '11px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(xVal.toFixed(0), x, padding.top + chartH + 20);
+        }
+
+        ctx.fillStyle = '#333333';
+        ctx.font = '13px sans-serif';
+        ctx.textAlign = 'center';
+        if (options.xLabel) ctx.fillText(options.xLabel, W / 2, H - 10);
+
+        ctx.save();
+        ctx.translate(18, H / 2);
+        ctx.rotate(-Math.PI / 2);
+        ctx.textAlign = 'center';
+        ctx.font = '13px sans-serif';
+        if (options.yLabel) ctx.fillText(options.yLabel, 0, 0);
+        ctx.restore();
+
+        ySeries.forEach(function(series, idx) {
+            const color = series.color || ['#1976d2', '#9c27b0', '#ff9800', '#4caf50', '#f44336'][idx % 5];
+            ctx.strokeStyle = color;
+            ctx.lineWidth = series.lineWidth || 2;
+            ctx.beginPath();
+            xData.forEach(function(xv, i) {
+                if (!isFinite(series.data[i]) || series.data[i] <= 0) return;
+                const x = padding.left + (xv - xMin) / (xMax - xMin) * chartW;
+                let y;
+                if (options.logY) {
+                    y = padding.top + chartH - (Math.log10(series.data[i]) - Math.log10(yMin)) / (Math.log10(yMax) - Math.log10(yMin)) * chartH;
+                } else {
+                    y = padding.top + chartH - (series.data[i] - yMin) / (yMax - yMin) * chartH;
+                }
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+            ctx.stroke();
+
+            if (series.fillArea) {
+                ctx.lineTo(padding.left + chartW, padding.top + chartH);
+                ctx.lineTo(padding.left, padding.top + chartH);
+                ctx.closePath();
+                ctx.fillStyle = color + '22';
+                ctx.fill();
+            }
+        });
+
+        if (ySeries.length > 1) {
+            let legendX = padding.left + 10;
+            const legendY = padding.top + 10;
+            ySeries.forEach(function(series, idx) {
+                const color = series.color || ['#1976d2', '#9c27b0', '#ff9800', '#4caf50', '#f44336'][idx % 5];
+                ctx.fillStyle = color;
+                ctx.fillRect(legendX, legendY, 14, 10);
+                ctx.strokeStyle = '#333';
+                ctx.lineWidth = 0.5;
+                ctx.strokeRect(legendX, legendY, 14, 10);
+                ctx.fillStyle = '#333';
+                ctx.font = '11px sans-serif';
+                ctx.textAlign = 'left';
+                ctx.fillText(series.label || ('Series ' + (idx + 1)), legendX + 20, legendY + 9);
+                legendX += ctx.measureText(series.label || ('Series ' + (idx + 1))).width + 40;
+            });
+        }
+    },
+
+    drawBarAndLineChart(canvas, title, xLabels, barData, lineData, options) {
+        options = options || {};
+        const ctx = canvas.getContext('2d');
+        const W = canvas.width;
+        const H = canvas.height;
+        const padding = { top: 50, right: 60, bottom: 60, left: 70 };
+        const chartW = W - padding.left - padding.right;
+        const chartH = H - padding.top - padding.bottom;
+
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, W, H);
+
+        ctx.fillStyle = '#1a237e';
+        ctx.font = 'bold 18px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(title, W / 2, 30);
+
+        const n = xLabels.length;
+        const barWidth = Math.max(4, chartW / n * 0.6);
+        const barGap = chartW / n * 0.4;
+
+        let barMax = Math.max.apply(null, barData) * 1.15;
+        let lineMax = Math.max.apply(null, lineData) * 1.15;
+        if (!isFinite(barMax)) barMax = 1;
+        if (!isFinite(lineMax)) lineMax = 1;
+
+        ctx.strokeStyle = '#dddddd';
+        ctx.lineWidth = 0.5;
+        for (let i = 0; i <= 5; i++) {
+            const y = padding.top + chartH - i / 5 * chartH;
+            ctx.beginPath();
+            ctx.moveTo(padding.left, y);
+            ctx.lineTo(padding.left + chartW, y);
+            ctx.stroke();
+
+            ctx.fillStyle = '#1976d2';
+            ctx.font = '11px sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText((barMax * i / 5).toExponential(0), padding.left - 6, y + 4);
+
+            ctx.fillStyle = '#ff9800';
+            ctx.textAlign = 'left';
+            ctx.fillText((lineMax * i / 5).toExponential(0), padding.left + chartW + 6, y + 4);
+        }
+
+        ctx.strokeStyle = '#999';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(padding.left, padding.top);
+        ctx.lineTo(padding.left, padding.top + chartH);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(padding.left + chartW, padding.top);
+        ctx.lineTo(padding.left + chartW, padding.top + chartH);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(padding.left, padding.top + chartH);
+        ctx.lineTo(padding.left + chartW, padding.top + chartH);
+        ctx.stroke();
+
+        barData.forEach(function(v, i) {
+            const bh = (v / barMax) * chartH;
+            const x = padding.left + i * (barWidth + barGap) + barGap / 2;
+            const y = padding.top + chartH - bh;
+            const grad = ctx.createLinearGradient(0, y, 0, y + bh);
+            grad.addColorStop(0, '#64b5f6');
+            grad.addColorStop(1, '#1976d2');
+            ctx.fillStyle = grad;
+            ctx.fillRect(x, y, barWidth, bh);
+            ctx.strokeStyle = '#0d47a1';
+            ctx.lineWidth = 0.5;
+            ctx.strokeRect(x, y, barWidth, bh);
+
+            if (i % 4 === 0) {
+                ctx.fillStyle = '#333';
+                ctx.font = '10px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(xLabels[i], x + barWidth / 2, padding.top + chartH + 18);
+            }
+        });
+
+        ctx.strokeStyle = '#ff9800';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        lineData.forEach(function(v, i) {
+            const x = padding.left + i * (barWidth + barGap) + barGap / 2 + barWidth / 2;
+            const y = padding.top + chartH - (v / lineMax) * chartH;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+
+        ctx.fillStyle = '#ff9800';
+        lineData.forEach(function(v, i) {
+            const x = padding.left + i * (barWidth + barGap) + barGap / 2 + barWidth / 2;
+            const y = padding.top + chartH - (v / lineMax) * chartH;
+            ctx.beginPath();
+            ctx.arc(x, y, 3, 0, Math.PI * 2);
+            ctx.fill();
+        });
+
+        const legendX = padding.left + 10;
+        ctx.fillStyle = '#1976d2';
+        ctx.fillRect(legendX, padding.top + 10, 14, 10);
+        ctx.fillStyle = '#333';
+        ctx.font = '11px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(options.barLabel || 'Photons (Time)', legendX + 20, padding.top + 19);
+
+        ctx.strokeStyle = '#ff9800';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(legendX + 160, padding.top + 15);
+        ctx.lineTo(legendX + 180, padding.top + 15);
+        ctx.stroke();
+        ctx.fillStyle = '#ff9800';
+        ctx.beginPath();
+        ctx.arc(legendX + 170, padding.top + 15, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#333';
+        ctx.fillText(options.lineLabel || 'Intensity (Space)', legendX + 188, padding.top + 19);
+
+        ctx.fillStyle = '#333';
+        ctx.font = '12px sans-serif';
+        ctx.textAlign = 'center';
+        if (options.xLabel) ctx.fillText(options.xLabel, W / 2, H - 10);
+    }
+};
+
 const ReportsModule = {
     init() {
         this.renderReportsList();
@@ -45,7 +317,7 @@ const ReportsModule = {
                     if (action === 'download') {
                         self.downloadReport(reportId);
                     } else {
-                        StateManager.showToast('正在打开报告...', 'info');
+                        StateManager.showToast('正在打开报告预览...', 'info');
                     }
                 });
             });
@@ -65,7 +337,6 @@ const ReportsModule = {
         var zenithMin = parseFloat(document.getElementById('zenithMin').value) || 0;
         var zenithMax = parseFloat(document.getElementById('zenithMax').value) || 90;
         var atmosphere = document.getElementById('atmosphereFilter').value;
-        var dataType = document.getElementById('dataTypeFilter').value;
 
         return SimData.simulationTasks.filter(function(t) {
             if (t.energy < energyMin || t.energy > energyMax) return false;
@@ -119,14 +390,33 @@ const ReportsModule = {
                 energyMax: document.getElementById('energyMax').value,
                 zenithMin: document.getElementById('zenithMin').value,
                 zenithMax: document.getElementById('zenithMax').value,
-                atmosphere: document.getElementById('atmosphereFilter').value,
-                dataType: document.getElementById('dataTypeFilter').value
+                atmosphere: document.getElementById('atmosphereFilter').value
             },
             count: tasks.length,
-            tasks: tasks
+            tasks: tasks.map(function(t) {
+                return {
+                    id: t.id,
+                    name: t.name,
+                    primaryParticle: t.primaryParticle,
+                    energy_eV: t.energy,
+                    zenithAngle_deg: t.zenithAngle,
+                    azimuthAngle_deg: t.azimuthAngle,
+                    atmosphereModel: t.atmosphereModel,
+                    observationAltitude_m: t.observationAltitude,
+                    status: t.status,
+                    xmax_gcm2: t.xmax,
+                    totalParticles: t.totalParticles,
+                    muonFraction_pct: t.muonFraction,
+                    emFraction_pct: t.emFraction,
+                    reconstructedEnergy_eV: t.reconstructedEnergy,
+                    triggerEfficiency_pct: t.triggerEfficiency,
+                    reconstructionResolution_pct: t.reconstructionResolution,
+                    showerData: t.showerData
+                };
+            })
         };
         this.downloadFile(JSON.stringify(data, null, 2), 'cosmic_ray_simulation_data.json', 'application/json');
-        StateManager.showToast('JSON 导出成功，共 ' + tasks.length + ' 条记录', 'success');
+        StateManager.showToast('JSON 导出成功，共 ' + tasks.length + ' 条记录（含完整簇射数据）', 'success');
     },
 
     downloadFile(content, filename, mimeType) {
@@ -147,188 +437,234 @@ const ReportsModule = {
             return;
         }
 
-        var tasks = this.getFilteredTasks().filter(function(t) { return t.status === 'completed'; });
+        var tasks = this.getFilteredTasks().filter(function(t) { return t.status === 'completed' && t.showerData; });
         if (tasks.length === 0) {
-            StateManager.showToast('没有已完成的模拟任务可生成报告', 'warning');
+            StateManager.showToast('没有已完成的模拟任务可生成报告（需要含真实物理数据）', 'warning');
             return;
         }
 
-        StateManager.showToast('正在生成综合报告 PDF...', 'info');
+        StateManager.showToast('正在绘制物理曲线并生成 PDF...', 'info');
 
         var self = this;
         setTimeout(function() {
             try {
+                var sampleTask = tasks[0];
+                var shower = sampleTask.showerData || PhysicsModels.computeLongitudinalDevelopment(
+                    sampleTask.energy, sampleTask.primaryParticle, sampleTask.zenithAngle,
+                    sampleTask.observationAltitude, sampleTask.atmosphereModel
+                );
+
+                if (!shower || !shower.longitudinal) {
+                    shower = SimData.runFullSimulation({
+                        energy: sampleTask.energy,
+                        primaryParticle: sampleTask.primaryParticle,
+                        zenithAngle: sampleTask.zenithAngle,
+                        observationAltitude: sampleTask.observationAltitude,
+                        atmosphereModel: sampleTask.atmosphereModel
+                    }).showerData;
+                }
+
+                var longCanvas = document.getElementById('pdfLongitudinalCanvas');
+                var latCanvas = document.getElementById('pdfLateralCanvas');
+                var cherenkovCanvas = document.getElementById('pdfCherenkovCanvas');
+
+                PDFCharts.drawLineChart(longCanvas,
+                    'Figure 1: Longitudinal Development (Gaisser-Hillas)',
+                    shower.longitudinal.depth,
+                    [
+                        { label: 'Charged Particles', data: shower.longitudinal.particles, color: '#1976d2', lineWidth: 2.5, fillArea: true },
+                        { label: 'Gamma', data: shower.longitudinal.gamma, color: '#9c27b0', lineWidth: 2 },
+                        { label: 'Muons', data: shower.longitudinal.muons, color: '#ff9800', lineWidth: 2 },
+                        { label: 'Electrons', data: shower.longitudinal.electrons, color: '#4caf50', lineWidth: 2 }
+                    ],
+                    { logY: true, xLabel: 'Atmospheric Depth X (g/cm²)', yLabel: 'dN/dX (particles / g·cm⁻²)' }
+                );
+
+                PDFCharts.drawLineChart(latCanvas,
+                    'Figure 2: Lateral Distribution (NKG Formula)',
+                    shower.lateral.radius,
+                    [{ label: 'Particle Density ρ(r)', data: shower.lateral.density, color: '#e65100', lineWidth: 2.5, fillArea: true }],
+                    { logY: true, xLabel: 'Distance from Core r (m)', yLabel: 'ρ(r) (particles / m²)' }
+                );
+
+                PDFCharts.drawBarAndLineChart(cherenkovCanvas,
+                    'Figure 3: Cherenkov Light Distribution',
+                    shower.cherenkov.time.map(function(t) { return t + ' ns'; }),
+                    shower.cherenkov.photons,
+                    shower.cherenkov.intensity,
+                    { barLabel: 'Photons (Time Distribution)', lineLabel: 'Intensity (Spatial Distribution)', xLabel: 'Time since First Photon (ns) / Radius (m)' }
+                );
+
+                var longImg = longCanvas.toDataURL('image/png', 1.0);
+                var latImg = latCanvas.toDataURL('image/png', 1.0);
+                var cherenkovImg = cherenkovCanvas.toDataURL('image/png', 1.0);
+
                 var { jsPDF } = jspdf;
-                var doc = new jsPDF();
+                var doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
+                var pageW = doc.internal.pageSize.getWidth();
+                var pageH = doc.internal.pageSize.getHeight();
 
                 doc.setFillColor(26, 35, 126);
-                doc.rect(0, 0, 210, 35, 'F');
-
+                doc.rect(0, 0, pageW, 32, 'F');
                 doc.setTextColor(255, 255, 255);
                 doc.setFontSize(18);
                 doc.setFont('helvetica', 'bold');
-                doc.text('Cosmic Ray Air Shower Simulation Report', 105, 15, { align: 'center' });
-                doc.setFontSize(10);
-                doc.setFont('helvetica', 'normal');
-                doc.text('Comprehensive Analysis Report', 105, 23, { align: 'center' });
+                doc.text('Cosmic Ray Air Shower Simulation Report', pageW / 2, 13, { align: 'center' });
                 doc.setFontSize(9);
-                doc.text('Generated: ' + new Date().toLocaleString('zh-CN'), 105, 30, { align: 'center' });
+                doc.setFont('helvetica', 'normal');
+                doc.text('Comprehensive Physics Analysis with Gaisser-Hillas / NKG / Cherenkov Models', pageW / 2, 20, { align: 'center' });
+                doc.text('Generated: ' + new Date().toLocaleString(), pageW / 2, 27, { align: 'center' });
 
                 doc.setTextColor(0, 0, 0);
-                doc.setFontSize(12);
+                doc.setFontSize(13);
                 doc.setFont('helvetica', 'bold');
-                doc.text('1. Summary Statistics', 14, 48);
+                doc.text('1. Simulation Parameters', 14, 42);
 
-                doc.setFontSize(10);
+                doc.setFontSize(9.5);
                 doc.setFont('helvetica', 'normal');
-                var stats = SimData.getDailyStats();
-                doc.text('Total Simulations: ' + stats.totalTasks, 14, 58);
-                doc.text('Completion Rate: ' + stats.completionRate + '%', 14, 65);
-                doc.text('Average Resolution: ' + stats.resolution + '%', 14, 72);
-                doc.text('Trigger Efficiency: ' + stats.triggerEfficiency + '%', 14, 79);
-                doc.text('Pending Approvals: ' + stats.pendingApproval, 14, 86);
+                var pLabel = StateManager.PARTICLE_LABELS[sampleTask.primaryParticle] || sampleTask.primaryParticle;
+                doc.text('Task ID:           ' + sampleTask.id, 14, 50);
+                doc.text('Primary Particle:  ' + pLabel + ' (' + sampleTask.primaryParticle + ')', 14, 56);
+                doc.text('Initial Energy:    ' + StateManager.formatEnergy(sampleTask.energy) + '  (' + sampleTask.energy.toExponential(4) + ' eV)', 14, 62);
+                doc.text('Zenith Angle:      ' + sampleTask.zenithAngle.toFixed(2) + ' deg', 14, 68);
+                doc.text('Azimuth Angle:     ' + sampleTask.azimuthAngle.toFixed(2) + ' deg', 14, 74);
+                doc.text('Atmosphere Model:  ' + sampleTask.atmosphereModel, 105, 50);
+                doc.text('Altitude:          ' + sampleTask.observationAltitude.toFixed(0) + ' m a.s.l.', 105, 56);
+                doc.text('X_max (predicted): ' + sampleTask.xmax.toFixed(1) + ' g/cm²', 105, 62);
+                doc.text('N_charged (ground): ' + sampleTask.totalParticles.toExponential(3), 105, 68);
+                doc.text('Muon fraction:     ' + sampleTask.muonFraction.toFixed(1) + ' %', 105, 74);
+                doc.text('EM fraction:       ' + sampleTask.emFraction.toFixed(1) + ' %', 105, 80);
 
-                var pageWidth = 95;
-                doc.text('Tasks Analyzed: ' + tasks.length, pageWidth, 58);
-                doc.text('Energy Range: ' + StateManager.formatEnergy(parseFloat(document.getElementById('energyMin').value)) +
-                    ' - ' + StateManager.formatEnergy(parseFloat(document.getElementById('energyMax').value)), pageWidth, 65);
-                doc.text('Zenith Range: ' + document.getElementById('zenithMin').value + ' - ' + document.getElementById('zenithMax').value + ' deg', pageWidth, 72);
-                doc.text('Atmosphere Model: ' + document.getElementById('atmosphereFilter').value, pageWidth, 79);
+                doc.setDrawColor(26, 35, 126);
+                doc.setLineWidth(0.3);
+                doc.line(14, 88, pageW - 14, 88);
 
-                doc.setFontSize(12);
+                doc.setFontSize(13);
                 doc.setFont('helvetica', 'bold');
-                doc.text('2. Longitudinal Development', 14, 100);
-
+                doc.text('2. Physics Models Summary', 14, 96);
                 doc.setFontSize(9);
                 doc.setFont('helvetica', 'normal');
-                doc.text('The longitudinal development curve describes the evolution of particle', 14, 108);
-                doc.text('number with atmospheric depth. The shower reaches maximum development', 14, 114);
-                doc.text('at depth X_max, where the number of particles is maximized.', 14, 120);
+                doc.text('- Longitudinal development:  Gaisser-Hillas 3-param function  dN/dX = Nmax * ((X-X0)/(Xmax-X0))^((Xmax-X0)/lambda) * exp((Xmax-X0)/lambda * (1-(X-X0)/(Xmax-X0)))', 14, 103);
+                doc.text('- Lateral distribution:     NKG (Nishimura-Kamata-Greisen) formula with Moliere radius R_M = ' + PhysicsModels.MOLIERE_RADIUS + ' m', 14, 109);
+                doc.text('- Cherenkov radiation:      Threshold condition cos(theta_c) = 1/(beta*n) ; yield = 370 sin^2(theta_c) photons/m', 14, 115);
 
-                var sampleTask = tasks[0];
-                var showerData = SimData.generateShowerData(sampleTask);
-                
-                doc.setFontSize(11);
+                doc.addImage(longImg, 'PNG', 8, 122, pageW - 16, 80);
+
+                doc.addPage();
+
+                doc.setFontSize(13);
                 doc.setFont('helvetica', 'bold');
-                doc.text('Sample Task: ' + sampleTask.name + ' (' + sampleTask.id + ')', 14, 132);
-                
+                doc.text('3. Lateral Distribution (NKG)', 14, 18);
                 doc.setFontSize(9);
                 doc.setFont('helvetica', 'normal');
-                doc.text('Primary Particle: ' + sampleTask.primaryParticle, 14, 140);
-                doc.text('Initial Energy: ' + StateManager.formatEnergy(sampleTask.energy), 14, 146);
-                doc.text('X_max: ' + (sampleTask.xmax ? sampleTask.xmax.toFixed(1) : 'N/A') + ' g/cm^2', 14, 152);
-                doc.text('Total Particles: ' + (sampleTask.totalParticles ? sampleTask.totalParticles.toExponential(2) : 'N/A'), 14, 158);
-                doc.text('Zenith Angle: ' + sampleTask.zenithAngle.toFixed(1) + ' deg', pageWidth, 140);
-                doc.text('Reconstructed Energy: ' + (sampleTask.reconstructedEnergy ? StateManager.formatEnergy(sampleTask.reconstructedEnergy) : 'N/A'), pageWidth, 146);
-                doc.text('Muon Fraction: ' + (sampleTask.muonFraction ? sampleTask.muonFraction.toFixed(1) : 'N/A') + '%', pageWidth, 152);
-                doc.text('EM Fraction: ' + (sampleTask.emFraction ? sampleTask.emFraction.toFixed(1) : 'N/A') + '%', pageWidth, 158);
+                doc.text('Particle density as a function of distance from shower core. Age parameter s = ' + 
+                    PhysicsModels.computeShowerAge(
+                        sampleTask.energy, sampleTask.primaryParticle, 
+                        sampleTask.observationAltitude, sampleTask.atmosphereModel
+                    ).toFixed(3), 14, 25);
+                doc.addImage(latImg, 'PNG', 8, 32, pageW - 16, 80);
 
-                doc.setFontSize(12);
+                doc.setFontSize(13);
                 doc.setFont('helvetica', 'bold');
-                doc.text('3. Lateral Distribution', 14, 175);
-
+                doc.text('4. Cherenkov Light Distribution', 14, 122);
                 doc.setFontSize(9);
                 doc.setFont('helvetica', 'normal');
-                doc.text('The lateral distribution function describes the spatial distribution of', 14, 183);
-                doc.text('particles at ground level. It typically follows an exponential or power-law', 14, 189);
-                doc.text('decrease with distance from the shower core.', 14, 195);
+                var chAngle = PhysicsModels.cherenkovAngle(sampleTask.energy / 1e9, 0.000511, sampleTask.observationAltitude, sampleTask.atmosphereModel);
+                doc.text('Cherenkov angle at observation level: ' + chAngle.angle_deg.toFixed(3) + ' deg, n = ' + chAngle.n_refractive.toFixed(6), 14, 129);
+                doc.text('Photon yield per meter: ' + chAngle.yield_per_m.toFixed(1) + ' photons/m (for electrons above threshold)', 14, 135);
+                doc.addImage(cherenkovImg, 'PNG', 8, 142, pageW - 16, 80);
 
-                var n = Math.min(showerData.lateral.radius.length, 8);
-                doc.setFontSize(8);
-                doc.text('Radius (m)  |  Particle Density', 14, 208);
-                for (var i = 0; i < n; i++) {
-                    var idx = Math.floor(i * showerData.lateral.radius.length / n);
-                    doc.text(
-                        String(showerData.lateral.radius[idx]).padEnd(12) + '|  ' +
-                        showerData.lateral.density[idx].toExponential(2),
-                        14, 216 + i * 6
-                    );
-                }
+                doc.addPage();
 
-                doc.setFontSize(12);
+                doc.setFontSize(13);
                 doc.setFont('helvetica', 'bold');
-                doc.text('4. Cherenkov Light Distribution', 14, 273);
-
-                doc.setFontSize(9);
+                doc.text('5. Reconstruction & Detector Response', 14, 18);
+                doc.setFontSize(9.5);
                 doc.setFont('helvetica', 'normal');
-                doc.text('Cherenkov radiation is emitted by charged particles traveling faster', 14, 281);
-                doc.text('than the speed of light in the atmosphere. The temporal and spatial', 14, 287);
-                doc.text('distribution provides important information for shower reconstruction.', 14, 293);
+                doc.text('Reconstructed Energy:   ' + StateManager.formatEnergy(sampleTask.reconstructedEnergy) + 
+                    '   (input: ' + StateManager.formatEnergy(sampleTask.energy) + ')', 14, 28);
+                doc.text('Energy Bias:            ' + 
+                    ((sampleTask.reconstructedEnergy - sampleTask.energy) / sampleTask.energy * 100).toFixed(2) + ' %', 14, 34);
+                doc.text('Reconstruction Resolution: ' + sampleTask.reconstructionResolution.toFixed(2) + ' %', 14, 40);
+                doc.text('Array Trigger Efficiency:  ' + sampleTask.triggerEfficiency.toFixed(2) + ' %', 14, 46);
 
-                var peakPhotons = Math.max.apply(null, showerData.cherenkov.photons);
-                doc.text('Peak Photons: ' + peakPhotons.toExponential(2), 14, 303);
-                doc.text('Spatial Distribution follows exponential decay from shower core.', 14, 310);
-
-                doc.setFontSize(12);
-                doc.setFont('helvetica', 'bold');
-                doc.text('5. Simulation Results Table', 14, 325);
-
-                var tableData = tasks.slice(0, 8).map(function(t) {
+                var tableData = tasks.slice(0, 12).map(function(t) {
                     return [
                         t.id,
                         StateManager.PARTICLE_LABELS[t.primaryParticle] || t.primaryParticle,
                         StateManager.formatEnergy(t.energy),
-                        t.zenithAngle.toFixed(1) + ' deg',
-                        t.xmax ? t.xmax.toFixed(0) + ' g/cm2' : 'N/A',
-                        t.triggerEfficiency ? t.triggerEfficiency.toFixed(0) + '%' : 'N/A'
+                        t.zenithAngle.toFixed(1),
+                        t.xmax ? t.xmax.toFixed(0) : '-',
+                        t.triggerEfficiency ? t.triggerEfficiency.toFixed(1) + '%' : '-'
                     ];
                 });
 
                 if (typeof doc.autoTable === 'function') {
                     doc.autoTable({
-                        startY: 333,
-                        head: [['ID', 'Particle', 'Energy', 'Zenith', 'X_max', 'Efficiency']],
+                        startY: 56,
+                        head: [['Task ID', 'Primary', 'Energy', 'Zenith (deg)', 'X_max (g/cm²)', 'Efficiency']],
                         body: tableData,
                         theme: 'grid',
                         styles: { fontSize: 8 },
-                        headStyles: { fillColor: [26, 35, 126], textColor: 255 },
+                        headStyles: { fillColor: [26, 35, 126], textColor: 255, fontSize: 9, fontStyle: 'bold' },
+                        alternateRowStyles: { fillColor: [240, 243, 255] },
                         margin: { left: 14, right: 14 }
                     });
                 }
 
+                doc.setFontSize(13);
+                doc.setFont('helvetica', 'bold');
+                var finalY = (doc.lastAutoTable && doc.lastAutoTable.finalY) || 130;
+                doc.text('6. Daily Performance Summary', 14, finalY + 10);
+
+                var stats = SimData.getDailyStats();
+                doc.setFontSize(9.5);
+                doc.setFont('helvetica', 'normal');
+                doc.text('Total Tasks Analyzed:    ' + stats.totalTasks, 14, finalY + 18);
+                doc.text('Completion Rate:         ' + stats.completionRate + ' %', 14, finalY + 24);
+                doc.text('Avg. Resolution:         ' + stats.resolution + ' %', 14, finalY + 30);
+                doc.text('Avg. Trigger Efficiency: ' + stats.triggerEfficiency + ' %', 14, finalY + 36);
+                doc.text('Pending Approval:        ' + stats.pendingApproval + ' tasks', 14, finalY + 42);
+                doc.text('Active Alerts:           ' + stats.alertCount, 14, finalY + 48);
+
                 doc.setFillColor(26, 35, 126);
-                doc.rect(0, 285, 210, 8, 'F');
+                doc.rect(0, pageH - 12, pageW, 12, 'F');
                 doc.setTextColor(255, 255, 255);
                 doc.setFontSize(8);
-                doc.text('Cosmic Ray Air Shower Simulation Platform - Confidential Report', 105, 290, { align: 'center' });
+                doc.setFont('helvetica', 'italic');
+                doc.text('Cosmic Ray Air Shower Simulation Platform  |  Physics Models: Gaisser-Hillas + NKG + Cherenkov  |  Page ' + 
+                    doc.internal.getNumberOfPages(), pageW / 2, pageH - 4, { align: 'center' });
 
-                var filename = 'Cosmic_Ray_Shower_Report_' + Date.now() + '.pdf';
+                var filename = 'Cosmic_Ray_Shower_Physics_Report_' + Date.now() + '.pdf';
                 doc.save(filename);
 
                 SimData.addReport({
                     id: 'REPORT-' + Date.now(),
-                    title: '综合分析报告 ' + new Date().toLocaleDateString('zh-CN'),
-                    taskId: tasks.length > 0 ? tasks[0].id : 'N/A',
+                    title: '物理综合报告 ' + new Date().toLocaleDateString('zh-CN'),
+                    taskId: sampleTask.id,
                     createdAt: new Date().toISOString(),
                     type: 'comprehensive',
                     fileSize: (Math.random() * 3 + 2).toFixed(2) + ' MB'
                 });
 
                 self.renderReportsList();
-                StateManager.showToast('PDF 报告生成成功！', 'success');
+                StateManager.showToast('物理综合 PDF 报告生成成功！（含真实物理曲线图）', 'success');
             } catch (e) {
                 console.error('PDF生成错误:', e);
                 StateManager.showToast('PDF 生成失败: ' + e.message, 'error');
             }
-        }, 500);
+        }, 300);
     },
 
     downloadReport(reportId) {
         var report = SimData.reports.find(function(r) { return r.id === reportId; });
         if (!report) return;
 
-        if (typeof jspdf !== 'undefined' && jspdf.jsPDF) {
-            var { jsPDF } = jspdf;
-            var doc = new jsPDF();
-            doc.setFontSize(16);
-            doc.text(report.title, 105, 50, { align: 'center' });
-            doc.setFontSize(10);
-            doc.text('Task ID: ' + report.taskId, 105, 65, { align: 'center' });
-            doc.text('Created: ' + StateManager.formatDate(report.createdAt), 105, 72, { align: 'center' });
-            doc.save(report.title.replace(/\s+/g, '_') + '.pdf');
-            StateManager.showToast('报告下载成功', 'success');
+        var task = SimData.getTaskById(report.taskId);
+        if (task && typeof jspdf !== 'undefined' && jspdf.jsPDF) {
+            this.generatePDFReport();
         } else {
-            StateManager.showToast('PDF 库未加载，正在生成文本报告...', 'info');
+            StateManager.showToast('正在下载报告...', 'info');
             var content = 'Report: ' + report.title + '\nTask: ' + report.taskId + '\nCreated: ' + report.createdAt;
             this.downloadFile(content, report.title.replace(/\s+/g, '_') + '.txt', 'text/plain');
         }
