@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>宇宙线空气簇射模拟与探测器阵列优化平台</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+    <header class="main-header">
+        <div class="header-content">
+            <div class="logo-section">
+                <div class="logo-icon">☄</div>
+                <div class="logo-text">
+                    <h1>宇宙线空气簇射模拟平台</h1>
+                    <p>Cosmic Ray Air Shower Simulation & Detector Array Optimization</p>
+                </div>
+            </div>
+            <nav class="main-nav">
+                <button class="nav-btn active" data-page="dashboard">📊 性能看板</button>
+                <button class="nav-btn" data-page="upload">📁 数据上传</button>
+                <button class="nav-btn" data-page="tasks">🔬 模拟任务</button>
+                <button class="nav-btn" data-page="monitor">📡 实时监控</button>
+                <button class="nav-btn" data-page="approval">✅ 审批流程</button>
+                <button class="nav-btn" data-page="optimize">🎯 阵列优化</button>
+                <button class="nav-btn" data-page="reports">📄 报告中心</button>
+            </nav>
+            <div class="header-right">
+                <div class="notification-bell" id="notificationBell">
+                    🔔
+                    <span class="notification-count" id="notificationCount">0</span>
+                </div>
+                <div class="user-info">
+                    <span class="user-avatar">👨‍🔬</span>
+                    <span class="user-name">值班物理学家</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="notification-panel" id="notificationPanel">
+        <div class="panel-header">
+            <h3>预警通知</h3>
+            <button class="close-btn" id="closeNotifications">×</button>
+        </div>
+        <div class="notification-list" id="notificationList"></div>
+    </div>
+
+    <main class="main-content">
+        <section class="page-section" id="page-dashboard">
+            <div class="page-header">
+                <h2>📊 每日性能统计看板</h2>
+                <div class="date-display" id="currentDate"></div>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-card stat-blue">
+                    <div class="stat-icon">📋</div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="totalTasks">0</div>
+                        <div class="stat-label">总任务数</div>
+                    </div>
+                    <div class="stat-trend">↑ 12%</div>
+                </div>
+                <div class="stat-card stat-green">
+                    <div class="stat-icon">✅</div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="completionRate">0%</div>
+                        <div class="stat-label">模拟完成率</div>
+                    </div>
+                    <div class="stat-trend">↑ 5%</div>
+                </div>
+                <div class="stat-card stat-orange">
+                    <div class="stat-icon">🎯</div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="resolution">0%</div>
+                        <div class="stat-label">重建分辨率</div>
+                    </div>
+                    <div class="stat-trend">↑ 2%</div>
+                </div>
+                <div class="stat-card stat-purple">
+                    <div class="stat-icon">⚡</div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="triggerEfficiency">0%</div>
+                        <div class="stat-label">触发效率</div>
+                    </div>
+                    <div class="stat-trend">↑ 8%</div>
+                </div>
+                <div class="stat-card stat-red">
+                    <div class="stat-icon">⚠️</div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="alertCount">0</div>
+                        <div class="stat-label">预警事件</div>
+                    </div>
+                    <div class="stat-trend">↓ 15%</div>
+                </div>
+                <div class="stat-card stat-cyan">
+                    <div class="stat-icon">🔬</div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="pendingApproval">0</div>
+                        <div class="stat-label">待审批</div>
+                    </div>
+                    <div class="stat-trend">— 持平</div>
+                </div>
+            </div>
+            <div class="dashboard-charts">
+                <div class="chart-card">
+                    <h3>近7日模拟任务趋势</h3>
+                    <canvas id="trendChart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h3>能量段任务分布</h3>
+                    <canvas id="energyChart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h3>状态分布</h3>
+                    <canvas id="statusChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <section class="page-section hidden" id="page-upload">
+            <div class="page-header">
+                <h2>📁 数据上传</h2>
+            </div>
+            <div class="upload-container">
+                <div class="upload-section">
+                    <h3>🌌 宇宙线事件数据上传</h3>
+                    <div class="upload-area" id="eventUploadArea">
+                        <div class="upload-icon">☄️</div>
+                        <p class="upload-text">拖拽宇宙线事件数据文件到此处，或点击选择</p>
+                        <p class="upload-hint">支持格式：.csv, .json, .root, .dat</p>
+                        <input type="file" id="eventFileInput" multiple accept=".csv,.json,.root,.dat" hidden>
+                    </div>
+                    <div class="file-list" id="eventFileList"></div>
+                </div>
+                <div class="upload-section">
+                    <h3>🌍 大气模型参数上传</h3>
+                    <div class="upload-area" id="atmosphereUploadArea">
+                        <div class="upload-icon">🌤️</div>
+                        <p class="upload-text">拖拽大气模型参数文件到此处，或点击选择</p>
+                        <p class="upload-hint">支持格式：.json, .yaml, .txt, .dat</p>
+                        <input type="file" id="atmosphereFileInput" multiple accept=".json,.yaml,.txt,.dat" hidden>
+                    </div>
+                    <div class="file-list" id="atmosphereFileList"></div>
+                </div>
+                <div class="upload-section params-section">
+                    <h3>⚙️ 模拟参数配置</h3>
+                    <div class="params-grid">
+                        <div class="param-group">
+                            <label>初级粒子类型</label>
+                            <select id="primaryType">
+                                <option value="proton">质子 (Proton)</option>
+                                <option value="gamma">伽马射线 (Gamma)</option>
+                                <option value="iron">铁核 (Iron)</option>
+                                <option value="helium">氦核 (Helium)</option>
+                            </select>
+                        </div>
+                        <div class="param-group">
+                            <label>初始能量 (eV)</label>
+                            <input type="number" id="primaryEnergy" value="1e15" step="1e14">
+                        </div>
+                        <div class="param-group">
+                            <label>天顶角 (°)</label>
+                            <input type="number" id="zenithAngle" value="20" min="0" max="90" step="1">
+                        </div>
+                        <div class="param-group">
+                            <label>方位角 (°)</label>
+                            <input type="number" id="azimuthAngle" value="0" min="0" max="360" step="1">
+                        </div>
+                        <div class="param-group">
+                            <label>大气模型</label>
+                            <select id="atmosphereModel">
+                                <option value="US76">美国标准大气 1976</option>
+                                <option value="Linsley">Linsley 大气模型</option>
+                                <option value="MSIS">MSIS-E-90</option>
+                                <option value="custom">自定义模型</option>
+                            </select>
+                        </div>
+                        <div class="param-group">
+                            <label>观测高度 (m)</label>
+                            <input type="number" id="observationAltitude" value="1400" step="100">
+                        </div>
+                        <div class="param-group">
+                            <label>模拟粒子数阈值</label>
+                            <input type="number" id="particleThreshold" value="1000" step="100">
+                        </div>
+                        <div class="param-group">
+                            <label>簇射最大深度阈值 (g/cm²)</label>
+                            <input type="number" id="xmaxThreshold" value="800" step="50">
+                        </div>
+                    </div>
+                    <button class="btn-primary" id="startSimulationBtn">🚀 开始模拟任务</button>
+                </div>
+            </div>
+        </section>
+
+        <section class="page-section hidden" id="page-tasks">
+            <div class="page-header">
+                <h2>🔬 模拟任务管理</h2>
+                <div class="task-filters">
+                    <select id="statusFilter">
+                        <option value="all">全部状态</option>
+                        <option value="pending">待提交</option>
+                        <option value="validating">大气模型校验</option>
+                        <option value="simulating">级联模拟中</option>
+                        <option value="detecting">探测器响应</option>
+                        <option value="reconstructing">事件重建</option>
+                        <option value="completed">完成</option>
+                        <option value="rollback">异常回退</option>
+                    </select>
+                    <input type="text" id="taskSearch" placeholder="搜索任务ID或名称...">
+                </div>
+            </div>
+            <div class="task-status-flow">
+                <div class="flow-item" data-status="pending">
+                    <div class="flow-icon">📝</div>
+                    <div class="flow-label">待提交</div>
+                </div>
+                <div class="flow-arrow">→</div>
+                <div class="flow-item" data-status="validating">
+                    <div class="flow-icon">🔍</div>
+                    <div class="flow-label">大气模型校验</div>
+                </div>
+                <div class="flow-arrow">→</div>
+                <div class="flow-item" data-status="simulating">
+                    <div class="flow-icon">⚛️</div>
+                    <div class="flow-label">级联模拟中</div>
+                </div>
+                <div class="flow-arrow">→</div>
+                <div class="flow-item" data-status="detecting">
+                    <div class="flow-icon">📡</div>
+                    <div class="flow-label">探测器响应</div>
+                </div>
+                <div class="flow-arrow">→</div>
+                <div class="flow-item" data-status="reconstructing">
+                    <div class="flow-icon">🔄</div>
+                    <div class="flow-label">事件重建</div>
+                </div>
+                <div class="flow-arrow">→</div>
+                <div class="flow-item" data-status="completed">
+                    <div class="flow-icon">✅</div>
+                    <div class="flow-label">完成</div>
+                </div>
+                <div class="flow-arrow flow-arrow-error">⇄</div>
+                <div class="flow-item flow-item-error" data-status="rollback">
+                    <div class="flow-icon">⚠️</div>
+                    <div class="flow-label">异常回退</div>
+                </div>
+            </div>
+            <div class="task-list" id="taskList"></div>
+        </section>
+
+        <section class="page-section hidden" id="page-monitor">
+            <div class="page-header">
+                <h2>📡 实时监控面板</h2>
+                <div class="monitor-controls">
+                    <select id="monitorTaskSelect">
+                        <option value="">选择模拟任务...</option>
+                    </select>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="autoRefresh" checked>
+                        自动刷新
+                    </label>
+                </div>
+            </div>
+            <div class="monitor-alert-panel" id="monitorAlertPanel">
+                <div class="alert-banner alert-warning hidden" id="xmaxAlert">
+                    <span class="alert-icon">⚠️</span>
+                    <span class="alert-text">簇射最大深度超过阈值！请值班物理学家复核</span>
+                    <button class="alert-dismiss" data-alert="xmax">×</button>
+                </div>
+                <div class="alert-banner alert-danger hidden" id="particleAlert">
+                    <span class="alert-icon">🚨</span>
+                    <span class="alert-text">粒子数异常！触发二级预警</span>
+                    <button class="alert-dismiss" data-alert="particle">×</button>
+                </div>
+                <div class="alert-banner alert-critical hidden" id="deviationAlert">
+                    <span class="alert-icon">🔴</span>
+                    <span class="alert-text">连续三次重建能量偏差超过10%！任务已暂停，已通知首席科学家</span>
+                    <button class="alert-dismiss" data-alert="deviation">×</button>
+                </div>
+            </div>
+            <div class="monitor-stats">
+                <div class="monitor-metric">
+                    <div class="metric-label">簇射最大深度 (X_max)</div>
+                    <div class="metric-value"><span id="xmaxValue">--</span> g/cm²</div>
+                    <div class="metric-bar">
+                        <div class="metric-bar-fill" id="xmaxBar" style="width: 0%"></div>
+                        <div class="metric-threshold" id="xmaxThresholdLine"></div>
+                    </div>
+                </div>
+                <div class="monitor-metric">
+                    <div class="metric-label">总粒子数</div>
+                    <div class="metric-value" id="totalParticles">--</div>
+                    <div class="metric-bar">
+                        <div class="metric-bar-fill metric-bar-blue" id="particleBar" style="width: 0%"></div>
+                    </div>
+                </div>
+                <div class="monitor-metric">
+                    <div class="metric-label">μ子数占比</div>
+                    <div class="metric-value"><span id="muonFraction">--</span>%</div>
+                    <div class="metric-bar">
+                        <div class="metric-bar-fill metric-bar-green" id="muonBar" style="width: 0%"></div>
+                    </div>
+                </div>
+                <div class="monitor-metric">
+                    <div class="metric-label">电磁成分占比</div>
+                    <div class="metric-value"><span id="emFraction">--</span>%</div>
+                    <div class="metric-bar">
+                        <div class="metric-bar-fill metric-bar-purple" id="emBar" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="monitor-charts">
+                <div class="chart-card">
+                    <h3>📈 纵向发展曲线 (Longitudinal Development)</h3>
+                    <canvas id="longitudinalChart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h3>📍 粒子数横向分布 (Lateral Distribution)</h3>
+                    <canvas id="lateralChart"></canvas>
+                </div>
+                <div class="chart-card chart-wide">
+                    <h3>💫 切伦科夫光时空分布 (Cherenkov Light Distribution)</h3>
+                    <canvas id="cherenkovChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <section class="page-section hidden" id="page-approval">
+            <div class="page-header">
+                <h2>✅ 两级审批流程</h2>
+            </div>
+            <div class="approval-container">
+                <div class="approval-flow">
+                    <div class="approval-stage">
+                        <div class="stage-header stage-physicist">
+                            <span class="stage-icon">🔬</span>
+                            <span class="stage-title">物理学家审批</span>
+                        </div>
+                        <div class="stage-desc">验证簇射模型正确性</div>
+                        <div class="stage-status">
+                            <span class="status-dot"></span>
+                            <span id="physicistStatusText">等待中</span>
+                        </div>
+                    </div>
+                    <div class="approval-arrow">→</div>
+                    <div class="approval-stage">
+                        <div class="stage-header stage-engineer">
+                            <span class="stage-icon">⚙️</span>
+                            <span class="stage-title">探测器工程师审批</span>
+                        </div>
+                        <div class="stage-desc">确认探测器响应合理性</div>
+                        <div class="stage-status">
+                            <span class="status-dot"></span>
+                            <span id="engineerStatusText">等待中</span>
+                        </div>
+                    </div>
+                    <div class="approval-arrow">→</div>
+                    <div class="approval-stage">
+                        <div class="stage-header stage-final">
+                            <span class="stage-icon">🚀</span>
+                            <span class="stage-title">推送至阵列优化</span>
+                        </div>
+                        <div class="stage-desc">自动进入优化系统</div>
+                        <div class="stage-status">
+                            <span class="status-dot"></span>
+                            <span id="finalStatusText">等待中</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="approval-panels">
+                    <div class="approval-panel">
+                        <h3>📋 待物理学家审批</h3>
+                        <div class="approval-list" id="physicistApprovalList"></div>
+                    </div>
+                    <div class="approval-panel">
+                        <h3>⚙️ 待探测器工程师审批</h3>
+                        <div class="approval-list" id="engineerApprovalList"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="page-section hidden" id="page-optimize">
+            <div class="page-header">
+                <h2>🎯 探测器阵列优化</h2>
+            </div>
+            <div class="optimize-container">
+                <div class="recommendation-card">
+                    <div class="recommendation-header">
+                        <span class="rec-icon">🧠</span>
+                        <h3>智能推荐引擎</h3>
+                        <span class="rec-badge">AI Powered</span>
+                    </div>
+                    <div class="recommendation-body">
+                        <p class="rec-desc">基于历史模拟数据分析，系统为您推荐以下最优参数配置：</p>
+                        <div class="recommendation-grid">
+                            <div class="rec-item">
+                                <div class="rec-label">推荐探测器间距</div>
+                                <div class="rec-value" id="recommendedSpacing">-- m</div>
+                                <div class="rec-confidence">置信度 <span id="spacingConfidence">--</span>%</div>
+                            </div>
+                            <div class="rec-item">
+                                <div class="rec-label">推荐触发阈值</div>
+                                <div class="rec-value" id="recommendedThreshold">-- N_pe</div>
+                                <div class="rec-confidence">置信度 <span id="thresholdConfidence">--</span>%</div>
+                            </div>
+                            <div class="rec-item">
+                                <div class="rec-label">推荐阵列布局</div>
+                                <div class="rec-value" id="recommendedLayout">正三角形</div>
+                                <div class="rec-confidence">覆盖率 <span id="coverageRate">--</span>%</div>
+                            </div>
+                            <div class="rec-item">
+                                <div class="rec-label">预期能量分辨率</div>
+                                <div class="rec-value" id="expectedResolution">--%</div>
+                                <div class="rec-confidence">相对提升 <span id="improvementRate">--</span>%</div>
+                            </div>
+                        </div>
+                        <button class="btn-primary" id="applyRecommendationBtn">✨ 应用推荐配置</button>
+                    </div>
+                </div>
+                <div class="array-visualization">
+                    <h3>📐 探测器阵列布局预览</h3>
+                    <div class="array-canvas-container">
+                        <canvas id="arrayCanvas" width="600" height="500"></canvas>
+                    </div>
+                    <div class="array-controls">
+                        <div class="param-group">
+                            <label>阵列类型</label>
+                            <select id="arrayType">
+                                <option value="triangle">正三角形</option>
+                                <option value="square">正方形</option>
+                                <option value="hexagonal">六边形</option>
+                                <option value="random">随机分布</option>
+                            </select>
+                        </div>
+                        <div class="param-group">
+                            <label>探测器间距 (m)</label>
+                            <input type="number" id="detectorSpacing" value="100" min="10" max="500" step="10">
+                        </div>
+                        <div class="param-group">
+                            <label>探测器数量</label>
+                            <input type="number" id="detectorCount" value="37" min="4" max="200" step="1">
+                        </div>
+                        <div class="param-group">
+                            <label>触发阈值 (N_pe)</label>
+                            <input type="number" id="triggerThreshold" value="50" min="1" max="1000" step="5">
+                        </div>
+                        <button class="btn-primary" id="updateArrayBtn">🔄 更新预览</button>
+                    </div>
+                </div>
+                <div class="optimize-metrics">
+                    <div class="chart-card">
+                        <h3>📊 间距 vs 能量分辨率</h3>
+                        <canvas id="spacingChart"></canvas>
+                    </div>
+                    <div class="chart-card">
+                        <h3>📊 触发阈值 vs 触发效率</h3>
+                        <canvas id="thresholdChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="page-section hidden" id="page-reports">
+            <div class="page-header">
+                <h2>📄 报告中心</h2>
+            </div>
+            <div class="reports-container">
+                <div class="export-section">
+                    <h3>📤 数据导出</h3>
+                    <div class="export-filters">
+                        <div class="param-group">
+                            <label>能量范围 (eV)</label>
+                            <div class="range-inputs">
+                                <input type="number" id="energyMin" placeholder="最小值" value="1e14">
+                                <span>~</span>
+                                <input type="number" id="energyMax" placeholder="最大值" value="1e18">
+                            </div>
+                        </div>
+                        <div class="param-group">
+                            <label>天顶角范围 (°)</label>
+                            <div class="range-inputs">
+                                <input type="number" id="zenithMin" placeholder="最小值" value="0" min="0" max="90">
+                                <span>~</span>
+                                <input type="number" id="zenithMax" placeholder="最大值" value="60" min="0" max="90">
+                            </div>
+                        </div>
+                        <div class="param-group">
+                            <label>大气条件</label>
+                            <select id="atmosphereFilter">
+                                <option value="all">全部</option>
+                                <option value="US76">美国标准大气</option>
+                                <option value="Linsley">Linsley模型</option>
+                                <option value="MSIS">MSIS-E-90</option>
+                            </select>
+                        </div>
+                        <div class="param-group">
+                            <label>数据类型</label>
+                            <select id="dataTypeFilter">
+                                <option value="all">全部数据</option>
+                                <option value="shower">簇射数据</option>
+                                <option value="detector">探测器响应</option>
+                                <option value="cherenkov">切伦科夫光</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="export-buttons">
+                        <button class="btn-secondary" id="exportCsvBtn">📄 导出 CSV</button>
+                        <button class="btn-secondary" id="exportJsonBtn">📋 导出 JSON</button>
+                        <button class="btn-primary" id="generateReportBtn">📄 生成 PDF 综合报告</button>
+                    </div>
+                </div>
+                <div class="reports-list-section">
+                    <h3>📚 历史报告</h3>
+                    <div class="reports-list" id="reportsList"></div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <div class="modal-overlay hidden" id="taskDetailModal">
+        <div class="modal modal-large">
+            <div class="modal-header">
+                <h3 id="modalTaskTitle">任务详情</h3>
+                <button class="close-btn" id="closeTaskDetail">×</button>
+            </div>
+            <div class="modal-body" id="taskDetailContent"></div>
+        </div>
+    </div>
+
+    <div class="modal-overlay hidden" id="approvalModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="approvalModalTitle">审批确认</h3>
+                <button class="close-btn" id="closeApprovalModal">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="approval-form">
+                    <div class="param-group">
+                        <label>审批意见</label>
+                        <textarea id="approvalComment" rows="4" placeholder="请输入审批意见..."></textarea>
+                    </div>
+                    <div class="approval-actions">
+                        <button class="btn-danger" id="rejectBtn">❌ 驳回</button>
+                        <button class="btn-success" id="approveBtn">✅ 通过</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="js/data.js"></script>
+    <script src="js/state.js"></script>
+    <script src="js/upload.js"></script>
+    <script src="js/tasks.js"></script>
+    <script src="js/monitor.js"></script>
+    <script src="js/approval.js"></script>
+    <script src="js/optimize.js"></script>
+    <script src="js/reports.js"></script>
+    <script src="js/dashboard.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
